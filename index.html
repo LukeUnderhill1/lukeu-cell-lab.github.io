@@ -3,21 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Life — a cellular automaton</title>
+<title>Life — an outer-totalistic cellular automaton</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
 
   :root{
-    --paper: #faf7f0;
-    --paper-line: #ded7c4;
-    --ink: #1e2b26;
-    --ink-soft: #5b6b62;
-    --alive: #1f5c4f;
-    --alive-glow: #2f7a67;
-    --amber: #b8862c;
-    --amber-soft: #e9d9b8;
-    --panel: #f2ede1;
-    --border: #cfc6ad;
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #e3e6eb;
+    --ink: #14171c;
+    --ink-soft: #6b7280;
+    --grid-line: #edeff2;
+    --alive: #1f2933;
+    --born: #0f9d8a;
+    --born-soft: #e3f6f2;
+    --survive: #4759d1;
+    --survive-soft: #e8eaff;
+    --ring: rgba(71, 89, 209, 0.25);
   }
 
   * { box-sizing: border-box; }
@@ -25,9 +27,9 @@
   html, body {
     margin: 0;
     padding: 0;
-    background: var(--paper);
+    background: var(--bg);
     color: var(--ink);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'Inter', sans-serif;
     height: 100%;
   }
 
@@ -38,30 +40,22 @@
   }
 
   header {
-    padding: 2rem clamp(1.25rem, 4vw, 3rem) 1rem;
-    border-bottom: 1px solid var(--paper-line);
-    background:
-      repeating-linear-gradient(
-        var(--paper) 0px, var(--paper) 27px, var(--paper-line) 27px, var(--paper-line) 28px
-      );
-    background-size: 100% 28px;
+    padding: 2.25rem clamp(1.25rem, 4vw, 3rem) 1.25rem;
   }
 
   h1 {
-    font-family: 'Fraunces', serif;
-    font-optical-sizing: auto;
-    font-weight: 500;
-    font-size: clamp(1.8rem, 4vw, 2.6rem);
-    margin: 0 0 0.35rem 0;
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    font-size: clamp(1.6rem, 3.4vw, 2.1rem);
+    margin: 0 0 0.4rem 0;
+    letter-spacing: -0.02em;
   }
 
   header p {
     margin: 0;
-    max-width: 46ch;
+    max-width: 52ch;
     color: var(--ink-soft);
-    font-size: 0.92rem;
-    line-height: 1.5;
+    font-size: 0.95rem;
+    line-height: 1.55;
   }
 
   main {
@@ -69,8 +63,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 1.5rem clamp(1rem, 4vw, 3rem) 2.5rem;
-    gap: 1.25rem;
+    padding: 0 clamp(1rem, 4vw, 3rem) 3rem;
+    gap: 1.1rem;
   }
 
   .stage {
@@ -78,8 +72,10 @@
     width: 100%;
     max-width: 880px;
     border: 1px solid var(--border);
-    background: var(--paper);
-    box-shadow: 0 1px 0 var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(20, 23, 28, 0.04);
   }
 
   #board {
@@ -94,65 +90,172 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0.9rem;
+    padding: 0.65rem 1rem;
     border-top: 1px solid var(--border);
-    background: var(--panel);
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     color: var(--ink-soft);
+    font-family: 'JetBrains Mono', monospace;
   }
 
   .stage-footer .count {
-    color: var(--alive);
+    color: var(--ink);
     font-weight: 600;
   }
 
-  .panel {
+  .card {
     width: 100%;
     max-width: 880px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem;
+    box-shadow: 0 1px 2px rgba(20, 23, 28, 0.04);
+  }
+
+  /* Rule editor */
+  .rule-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
+  }
+
+  .rule-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .rule-head h2 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .rule-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    letter-spacing: 0.01em;
+  }
+
+  .rule-badge .b { color: var(--born); }
+  .rule-badge .s { color: var(--survive); }
+
+  .rule-row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .rule-row .row-label {
+    width: 90px;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .rule-row.born .row-label { color: var(--born); }
+  .rule-row.survive .row-label { color: var(--survive); }
+
+  .chip-group {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink-soft);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.05s ease, background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+
+  .chip:hover { border-color: var(--ink-soft); }
+  .chip:active { transform: translateY(1px); }
+
+  .chip:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  .rule-row.born .chip.active {
+    background: var(--born);
+    border-color: var(--born);
+    color: #fff;
+  }
+  .rule-row.survive .chip.active {
+    background: var(--survive);
+    border-color: var(--survive);
+    color: #fff;
+  }
+
+  .rule-hint {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Controls */
+  .panel {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem 1.25rem;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    padding: 1rem 1.1rem;
   }
 
   .controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.55rem;
   }
 
-  button {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.82rem;
-    font-weight: 500;
-    padding: 0.55rem 0.95rem;
+  button.action {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+    border-radius: 9px;
     border: 1px solid var(--border);
-    background: var(--paper);
+    background: var(--bg);
     color: var(--ink);
     cursor: pointer;
     transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease;
   }
 
-  button:hover { border-color: var(--ink-soft); }
-  button:active { transform: translateY(1px); }
+  button.action:hover { border-color: #c7cbd3; background: #eef0f3; }
+  button.action:active { transform: translateY(1px); }
 
-  button.primary {
-    background: var(--alive);
-    border-color: var(--alive);
-    color: var(--paper);
+  button.action.primary {
+    background: var(--survive);
+    border-color: var(--survive);
+    color: #fff;
   }
-  button.primary:hover { background: var(--alive-glow); border-color: var(--alive-glow); }
+  button.action.primary:hover { background: #3c4cc0; border-color: #3c4cc0; }
 
-  button.primary.is-paused {
-    background: var(--amber);
-    border-color: var(--amber);
+  button.action.primary.is-paused {
+    background: var(--born);
+    border-color: var(--born);
   }
-  button.primary.is-paused:hover { background: #c99938; border-color: #c99938; }
+  button.action.primary.is-paused:hover { background: #0d8a79; border-color: #0d8a79; }
 
-  button:disabled {
+  button.action:disabled {
     opacity: 0.4;
     cursor: not-allowed;
   }
@@ -165,7 +268,7 @@
   }
 
   .speed label {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     color: var(--ink-soft);
     white-space: nowrap;
   }
@@ -173,41 +276,42 @@
   input[type="range"] {
     -webkit-appearance: none;
     width: 140px;
-    height: 2px;
+    height: 3px;
+    border-radius: 3px;
     background: var(--border);
     outline: none;
   }
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
-    background: var(--alive);
+    background: var(--survive);
     cursor: pointer;
     border: none;
   }
   input[type="range"]::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
-    background: var(--alive);
+    background: var(--survive);
     cursor: pointer;
     border: none;
   }
 
   footer {
     text-align: center;
-    padding: 1rem;
-    font-size: 0.72rem;
+    padding: 1.25rem;
+    font-size: 0.75rem;
     color: var(--ink-soft);
-    border-top: 1px solid var(--paper-line);
   }
 
-  footer a { color: var(--ink-soft); }
-
-  @media (max-width: 560px) {
+  @media (max-width: 620px) {
     .speed { margin-left: 0; width: 100%; }
     input[type="range"] { flex: 1; width: auto; }
+    .rule-row { align-items: flex-start; }
+    .rule-row .row-label { width: 68px; font-size: 0.8rem; }
+    .chip { width: 30px; height: 30px; font-size: 0.78rem; }
   }
 </style>
 </head>
@@ -215,7 +319,7 @@
 
 <header>
   <h1>Life</h1>
-  <p>Draw a pattern on the grid, then run it. Each cell lives, dies, or is born by three simple rules — click and drag to place cells while paused.</p>
+  <p>Draw a pattern, then run it. Set your own outer-totalistic rule below — choose which neighbor counts bring a cell to life and which let it survive.</p>
 </header>
 
 <main>
@@ -227,12 +331,30 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="card rule-card">
+    <div class="rule-head">
+      <h2>Rule</h2>
+      <span class="rule-badge"><span class="b">B<span id="birthLabel">3</span></span>/<span class="s">S<span id="surviveLabel">23</span></span></span>
+    </div>
+
+    <div class="rule-row born">
+      <span class="row-label">Born on</span>
+      <div class="chip-group" id="birthChips"></div>
+    </div>
+    <div class="rule-row survive">
+      <span class="row-label">Survives on</span>
+      <div class="chip-group" id="surviveChips"></div>
+    </div>
+
+    <p class="rule-hint">Each number is a neighbor count (0–8). A dead cell with a highlighted <strong style="color:var(--born)">born</strong> count becomes alive; a live cell with a highlighted <strong style="color:var(--survive)">survive</strong> count stays alive. Everything else dies or stays empty.</p>
+  </div>
+
+  <div class="card panel">
     <div class="controls">
-      <button id="playBtn" class="primary">Run</button>
-      <button id="stepBtn">Step</button>
-      <button id="clearBtn">Reset</button>
-      <button id="randomBtn">Randomize</button>
+      <button id="playBtn" class="action primary">Run</button>
+      <button id="stepBtn" class="action">Step</button>
+      <button id="clearBtn" class="action">Reset</button>
+      <button id="randomBtn" class="action">Randomize</button>
     </div>
     <div class="speed">
       <label for="speedRange">speed</label>
@@ -242,7 +364,7 @@
 </main>
 
 <footer>
-  Conway's Game of Life — grid wraps at the edges.
+  An outer-totalistic cellular automaton — grid wraps at the edges.
 </footer>
 
 <script>
@@ -256,6 +378,10 @@
   const speedRange = document.getElementById('speedRange');
   const genCountEl = document.getElementById('genCount');
   const liveCountEl = document.getElementById('liveCount');
+  const birthChipsEl = document.getElementById('birthChips');
+  const surviveChipsEl = document.getElementById('surviveChips');
+  const birthLabelEl = document.getElementById('birthLabel');
+  const surviveLabelEl = document.getElementById('surviveLabel');
 
   const CELL = 14;
   let cols, rows;
@@ -266,16 +392,59 @@
   let drawValue = 1;
   let isPointerDown = false;
 
+  let birthSet = new Set([3]);
+  let surviveSet = new Set([2, 3]);
+
   const colors = {
-    paper: '#faf7f0',
-    line: '#e7e1d1',
-    alive: '#1f5c4f'
+    surface: '#ffffff',
+    line: '#edeff2',
+    alive: '#1f2933'
   };
+
+  // ---------- Rule editor ----------
+
+  function buildChips(container, set, onToggle) {
+    container.innerHTML = '';
+    for (let n = 0; n <= 8; n++) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = n;
+      chip.setAttribute('aria-pressed', set.has(n) ? 'true' : 'false');
+      if (set.has(n)) chip.classList.add('active');
+      chip.addEventListener('click', () => {
+        if (set.has(n)) set.delete(n); else set.add(n);
+        chip.classList.toggle('active');
+        chip.setAttribute('aria-pressed', set.has(n) ? 'true' : 'false');
+        onToggle();
+      });
+      container.appendChild(chip);
+    }
+  }
+
+  function sortedDigits(set) {
+    return [...set].sort((a, b) => a - b).join('');
+  }
+
+  function updateRuleLabel() {
+    birthLabelEl.textContent = sortedDigits(birthSet);
+    surviveLabelEl.textContent = sortedDigits(surviveSet);
+  }
+
+  function onRuleChanged() {
+    updateRuleLabel();
+  }
+
+  buildChips(birthChipsEl, birthSet, onRuleChanged);
+  buildChips(surviveChipsEl, surviveSet, onRuleChanged);
+  updateRuleLabel();
+
+  // ---------- Grid ----------
 
   function sizeCanvas() {
     const displayWidth = canvas.parentElement.clientWidth;
     cols = Math.max(10, Math.floor(displayWidth / CELL));
-    rows = Math.max(10, Math.floor((displayWidth * 0.62) / CELL));
+    rows = Math.max(10, Math.floor((displayWidth * 0.6) / CELL));
     canvas.width = cols * CELL;
     canvas.height = rows * CELL;
 
@@ -315,7 +484,7 @@
   }
 
   function draw() {
-    ctx.fillStyle = colors.paper;
+    ctx.fillStyle = colors.surface;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.strokeStyle = colors.line;
@@ -358,8 +527,8 @@
         }
         const alive = grid.get(x, y);
         let next = 0;
-        if (alive && (neighbors === 2 || neighbors === 3)) next = 1;
-        if (!alive && neighbors === 3) next = 1;
+        if (alive && surviveSet.has(neighbors)) next = 1;
+        if (!alive && birthSet.has(neighbors)) next = 1;
         nextGrid.set(x, y, next);
       }
     }
@@ -371,7 +540,6 @@
   }
 
   function speedToDelay(v) {
-    // v: 1 (slow) .. 20 (fast) -> delay ms, higher v = shorter delay
     const minDelay = 30;
     const maxDelay = 700;
     const t = (v - 1) / 19;
