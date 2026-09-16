@@ -260,17 +260,31 @@
     cursor: not-allowed;
   }
 
+  .speed-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.1rem;
+    margin-left: auto;
+  }
+
   .speed {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    margin-left: auto;
   }
 
   .speed label {
     font-size: 0.8rem;
     color: var(--ink-soft);
     white-space: nowrap;
+  }
+
+  .speed-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    min-width: 2.6em;
   }
 
   input[type="range"] {
@@ -307,7 +321,8 @@
   }
 
   @media (max-width: 620px) {
-    .speed { margin-left: 0; width: 100%; }
+    .speed-group { margin-left: 0; width: 100%; }
+    .speed { flex: 1; min-width: 140px; }
     input[type="range"] { flex: 1; width: auto; }
     .rule-row { align-items: flex-start; }
     .rule-row .row-label { width: 68px; font-size: 0.8rem; }
@@ -355,9 +370,16 @@
       <button id="clearBtn" class="action">Reset</button>
       <button id="randomBtn" class="action">Randomize</button>
     </div>
-    <div class="speed">
-      <label for="speedRange">speed</label>
-      <input type="range" id="speedRange" min="1" max="20" value="8">
+    <div class="speed-group">
+      <div class="speed">
+        <label for="densityRange">density</label>
+        <input type="range" id="densityRange" min="5" max="95" value="25">
+        <span id="densityLabel" class="speed-value">25%</span>
+      </div>
+      <div class="speed">
+        <label for="speedRange">speed</label>
+        <input type="range" id="speedRange" min="1" max="20" value="8">
+      </div>
     </div>
   </div>
 </main>
@@ -375,6 +397,8 @@
   const clearBtn = document.getElementById('clearBtn');
   const randomBtn = document.getElementById('randomBtn');
   const speedRange = document.getElementById('speedRange');
+  const densityRange = document.getElementById('densityRange');
+  const densityLabel = document.getElementById('densityLabel');
   const genCountEl = document.getElementById('genCount');
   const liveCountEl = document.getElementById('liveCount');
   const birthChipsEl = document.getElementById('birthChips');
@@ -625,11 +649,16 @@
 
   randomBtn.addEventListener('click', () => {
     setRunning(false);
+    const density = Number(densityRange.value) / 100;
     for (let i = 0; i < grid.data.length; i++) {
-      grid.data[i] = Math.random() < 0.25 ? 1 : 0;
+      grid.data[i] = Math.random() < density ? 1 : 0;
     }
     generation = 0;
     draw();
+  });
+
+  densityRange.addEventListener('input', () => {
+    densityLabel.textContent = `${densityRange.value}%`;
   });
 
   speedRange.addEventListener('input', restartTimer);
