@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life — a cellular automaton</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --paper: #faf7f0;
+    --paper-line: #ded7c4;
+    --ink: #1e2b26;
+    --ink-soft: #5b6b62;
+    --alive: #1f5c4f;
+    --alive-glow: #2f7a67;
+    --amber: #b8862c;
+    --amber-soft: #e9d9b8;
+    --panel: #f2ede1;
+    --border: #cfc6ad;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    height: 100%;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 2rem clamp(1.25rem, 4vw, 3rem) 1rem;
+    border-bottom: 1px solid var(--paper-line);
+    background:
+      repeating-linear-gradient(
+        var(--paper) 0px, var(--paper) 27px, var(--paper-line) 27px, var(--paper-line) 28px
+      );
+    background-size: 100% 28px;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-optical-sizing: auto;
+    font-weight: 500;
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    margin: 0 0 0.35rem 0;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    margin: 0;
+    max-width: 46ch;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem clamp(1rem, 4vw, 3rem) 2.5rem;
+    gap: 1.25rem;
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    max-width: 880px;
+    border: 1px solid var(--border);
+    background: var(--paper);
+    box-shadow: 0 1px 0 var(--border);
+  }
+
+  #board {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: cell;
+    touch-action: none;
+  }
+
+  .stage-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.9rem;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+  }
+
+  .stage-footer .count {
+    color: var(--alive);
+    font-weight: 600;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 880px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 1rem 1.1rem;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 0.55rem 0.95rem;
+    border: 1px solid var(--border);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  button:hover { border-color: var(--ink-soft); }
+  button:active { transform: translateY(1px); }
+
+  button.primary {
+    background: var(--alive);
+    border-color: var(--alive);
+    color: var(--paper);
+  }
+  button.primary:hover { background: var(--alive-glow); border-color: var(--alive-glow); }
+
+  button.primary.is-paused {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+  button.primary.is-paused:hover { background: #c99938; border-color: #c99938; }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .speed {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: auto;
+  }
+
+  .speed label {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 140px;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--alive);
+    cursor: pointer;
+    border: none;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--alive);
+    cursor: pointer;
+    border: none;
+  }
+
+  footer {
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--paper-line);
+  }
+
+  footer a { color: var(--ink-soft); }
+
+  @media (max-width: 560px) {
+    .speed { margin-left: 0; width: 100%; }
+    input[type="range"] { flex: 1; width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Life</h1>
+  <p>Draw a pattern on the grid, then run it. Each cell lives, dies, or is born by three simple rules — click and drag to place cells while paused.</p>
+</header>
+
+<main>
+  <div class="stage">
+    <canvas id="board"></canvas>
+    <div class="stage-footer">
+      <span>generation <span id="genCount" class="count">0</span></span>
+      <span><span id="liveCount" class="count">0</span> live cells</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <button id="playBtn" class="primary">Run</button>
+      <button id="stepBtn">Step</button>
+      <button id="clearBtn">Reset</button>
+      <button id="randomBtn">Randomize</button>
+    </div>
+    <div class="speed">
+      <label for="speedRange">speed</label>
+      <input type="range" id="speedRange" min="1" max="20" value="8">
+    </div>
+  </div>
+</main>
+
+<footer>
+  Conway's Game of Life — grid wraps at the edges.
+</footer>
+
+<script>
+(function () {
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const playBtn = document.getElementById('playBtn');
+  const stepBtn = document.getElementById('stepBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const randomBtn = document.getElementById('randomBtn');
+  const speedRange = document.getElementById('speedRange');
+  const genCountEl = document.getElementById('genCount');
+  const liveCountEl = document.getElementById('liveCount');
+
+  const CELL = 14;
+  let cols, rows;
+  let grid, nextGrid;
+  let running = false;
+  let generation = 0;
+  let timer = null;
+  let drawValue = 1;
+  let isPointerDown = false;
+
+  const colors = {
+    paper: '#faf7f0',
+    line: '#e7e1d1',
+    alive: '#1f5c4f'
+  };
+
+  function sizeCanvas() {
+    const displayWidth = canvas.parentElement.clientWidth;
+    cols = Math.max(10, Math.floor(displayWidth / CELL));
+    rows = Math.max(10, Math.floor((displayWidth * 0.62) / CELL));
+    canvas.width = cols * CELL;
+    canvas.height = rows * CELL;
+
+    const old = grid;
+    const oldCols = old ? old.cols : 0;
+    const oldRows = old ? old.rows : 0;
+    grid = makeGrid(cols, rows);
+    nextGrid = makeGrid(cols, rows);
+
+    if (old) {
+      const copyCols = Math.min(cols, oldCols);
+      const copyRows = Math.min(rows, oldRows);
+      for (let y = 0; y < copyRows; y++) {
+        for (let x = 0; x < copyCols; x++) {
+          grid.set(x, y, old.get(x, y));
+        }
+      }
+    }
+    draw();
+  }
+
+  function makeGrid(c, r) {
+    const data = new Uint8Array(c * r);
+    return {
+      cols: c,
+      rows: r,
+      data,
+      get(x, y) { return data[y * c + x]; },
+      set(x, y, v) { data[y * c + x] = v; }
+    };
+  }
+
+  function countLive() {
+    let n = 0;
+    for (let i = 0; i < grid.data.length; i++) n += grid.data[i];
+    return n;
+  }
+
+  function draw() {
+    ctx.fillStyle = colors.paper;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = colors.line;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= cols; x++) {
+      ctx.moveTo(x * CELL + 0.5, 0);
+      ctx.lineTo(x * CELL + 0.5, canvas.height);
+    }
+    for (let y = 0; y <= rows; y++) {
+      ctx.moveTo(0, y * CELL + 0.5);
+      ctx.lineTo(canvas.width, y * CELL + 0.5);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = colors.alive;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        if (grid.get(x, y)) {
+          ctx.fillRect(x * CELL + 1.5, y * CELL + 1.5, CELL - 3, CELL - 3);
+        }
+      }
+    }
+
+    genCountEl.textContent = generation;
+    liveCountEl.textContent = countLive();
+  }
+
+  function step() {
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        let neighbors = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = (x + dx + cols) % cols;
+            const ny = (y + dy + rows) % rows;
+            neighbors += grid.get(nx, ny);
+          }
+        }
+        const alive = grid.get(x, y);
+        let next = 0;
+        if (alive && (neighbors === 2 || neighbors === 3)) next = 1;
+        if (!alive && neighbors === 3) next = 1;
+        nextGrid.set(x, y, next);
+      }
+    }
+    const tmp = grid;
+    grid = nextGrid;
+    nextGrid = tmp;
+    generation++;
+    draw();
+  }
+
+  function speedToDelay(v) {
+    // v: 1 (slow) .. 20 (fast) -> delay ms, higher v = shorter delay
+    const minDelay = 30;
+    const maxDelay = 700;
+    const t = (v - 1) / 19;
+    return Math.round(maxDelay - t * (maxDelay - minDelay));
+  }
+
+  function setRunning(next) {
+    running = next;
+    if (running) {
+      playBtn.textContent = 'Pause';
+      playBtn.classList.remove('is-paused');
+      stepBtn.disabled = true;
+      timer = setInterval(step, speedToDelay(Number(speedRange.value)));
+    } else {
+      playBtn.textContent = 'Run';
+      playBtn.classList.add('is-paused');
+      stepBtn.disabled = false;
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function restartTimer() {
+    if (running) {
+      clearInterval(timer);
+      timer = setInterval(step, speedToDelay(Number(speedRange.value)));
+    }
+  }
+
+  function cellFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = Math.floor((clientX - rect.left) * scaleX / CELL);
+    const y = Math.floor((clientY - rect.top) * scaleY / CELL);
+    return { x, y };
+  }
+
+  function paintAt(e) {
+    const { x, y } = cellFromEvent(e);
+    if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+    grid.set(x, y, drawValue);
+    draw();
+  }
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (running) setRunning(false);
+    const { x, y } = cellFromEvent(e);
+    drawValue = grid.get(x, y) ? 0 : 1;
+    isPointerDown = true;
+    paintAt(e);
+  });
+  window.addEventListener('mouseup', () => { isPointerDown = false; });
+  canvas.addEventListener('mousemove', (e) => { if (isPointerDown) paintAt(e); });
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (running) setRunning(false);
+    const { x, y } = cellFromEvent(e);
+    drawValue = grid.get(x, y) ? 0 : 1;
+    isPointerDown = true;
+    paintAt(e);
+  }, { passive: false });
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (isPointerDown) paintAt(e);
+  }, { passive: false });
+  window.addEventListener('touchend', () => { isPointerDown = false; });
+
+  playBtn.addEventListener('click', () => setRunning(!running));
+
+  stepBtn.addEventListener('click', () => {
+    if (!running) step();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    setRunning(false);
+    grid.data.fill(0);
+    generation = 0;
+    draw();
+  });
+
+  randomBtn.addEventListener('click', () => {
+    setRunning(false);
+    for (let i = 0; i < grid.data.length; i++) {
+      grid.data[i] = Math.random() < 0.25 ? 1 : 0;
+    }
+    generation = 0;
+    draw();
+  });
+
+  speedRange.addEventListener('input', restartTimer);
+
+  window.addEventListener('resize', () => {
+    sizeCanvas();
+  });
+
+  sizeCanvas();
+  setRunning(false);
+})();
+</script>
+
+</body>
+</html>
